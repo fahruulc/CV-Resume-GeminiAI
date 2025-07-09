@@ -1,0 +1,439 @@
+{
+  "name": "YT CV",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "subject:\"Lamaran_CV\" has:attachment"
+        },
+        "options": {
+          "downloadAttachments": true
+        }
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -300,
+        -20
+      ],
+      "id": "a1f2905f-2fc5-4ae2-b996-47dade7078fd",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "PdBK7a7U49YQ7vmX",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://stirlingpdf.io/api/v1/convert/pdf/img",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "parameterType": "formBinaryData",
+              "name": "fileInput",
+              "inputDataFieldName": "attachment_0"
+            },
+            {
+              "name": "imageFormat",
+              "value": "jpg"
+            },
+            {
+              "name": "singleOrMultiple",
+              "value": "single"
+            },
+            {
+              "name": "dpi",
+              "value": "300"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -80,
+        -20
+      ],
+      "id": "d8801c60-c562-4bb8-8ba5-d5382698fa8f",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Evaluate the candidate's resume",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": [
+            {
+              "message": "=Assess the given Candiate Resume for the role of Software Engineer with 3rd years of professional experience. Determine if the candidate's skills match the role and if they qualify for an in-person interview."
+            },
+            {
+              "type": "HumanMessagePromptTemplate",
+              "messageType": "imageBinary"
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        140,
+        -20
+      ],
+      "id": "e05d0882-0592-41cf-a388-76c360a45243",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.0-flash",
+        "options": {
+          "maxOutputTokens": 1000
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        60,
+        180
+      ],
+      "id": "81fcf36f-2f95-404d-9496-3238b529c31d",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zlhWFTRa3TRxgeTb",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n\t\"is_qualified\": true,\n\t\"reason\": \"\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        340,
+        180
+      ],
+      "id": "8d52218b-931b-4027-8248-9b78ef2086c1",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "990a9834-7534-4861-8406-65e9dd769ca1",
+              "name": "Timestamp",
+              "value": "={{ new Date().toISOString() }}",
+              "type": "string"
+            },
+            {
+              "id": "e21da279-fb9d-4569-bc27-6209d0745c02",
+              "name": "Candidate Name",
+              "value": "={{ $node[\"Gmail Trigger\"].json[\"subject\"].split(\"Lamaran_CV \")[1] || \"Tidak Diketahui\" }}",
+              "type": "string"
+            },
+            {
+              "id": "5416855d-b795-4d42-9f73-132bac6fe786",
+              "name": "Candidate Email",
+              "value": "={{ $node[\"Gmail Trigger\"].json[\"from\"][\"value\"][0][\"address\"] || \"Tidak Diketahui\" }}",
+              "type": "string"
+            },
+            {
+              "id": "a9437009-4301-4fca-8cbd-f16a945a893b",
+              "name": "Is Qualified",
+              "value": "={{ $node[\"Basic LLM Chain\"].json[\"output\"][\"is_qualified\"] ? \"ELIGIBLE\" : \"NOT ELIGIBLE\" }}",
+              "type": "string"
+            },
+            {
+              "id": "a4aea3ea-d9a7-4867-937a-a9556410d71c",
+              "name": "Reason",
+              "value": "={{ $node[\"Basic LLM Chain\"].json[\"output\"][\"reason\"] || \"-\" }}",
+              "type": "string"
+            },
+            {
+              "id": "11175fe6-1427-4ae4-b3bd-3c476ca3bff6",
+              "name": "Strengths",
+              "value": "={{ ($node[\"Basic LLM Chain\"].json[\"output\"][\"strengths\"] || [\"-\"]).join(', ') }}",
+              "type": "string"
+            },
+            {
+              "id": "0ed89242-0ea8-4feb-9b87-dab6ff724bb2",
+              "name": "Weaknesses",
+              "value": "={{ ($node[\"Basic LLM Chain\"].json[\"output\"][\"weaknesses\"] || [\"-\"]).join(', ') }}",
+              "type": "string"
+            },
+            {
+              "id": "ab44dfa7-e833-47b6-b83d-34c3d72c92de",
+              "name": "Interview Recommendation",
+              "value": "={{ ($node[\"Basic LLM Chain\"].json[\"output\"][\"interview_recommendation\"] || [\"-\"]).join(', ') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        500,
+        -20
+      ],
+      "id": "b25f51df-d5bd-4a15-a524-b969cb3a33a6",
+      "name": "Set"
+    },
+    {
+      "parameters": {
+        "chatId": "1393779039",
+        "text": "=*Analisis Lamaran Kerja Terbaru*\n\nHalo! 👋 Ada lamaran kerja baru yang masuk untuk posisi Software Engineer Specialist.\nMari kita lihat hasilnya:\n\n*Nama Kandidat:* {{ $node[\"Set\"].json[\"Candidate Name\"] }}\n*Email Kandidat:* `{{ $node[\"Set\"].json[\"Candidate Email\"] }}`\n\n*Hasil Penilaian AI:*\n*Status Kesesuaian:* *{{ $node[\"Set\"].json[\"Is Qualified\"] == \"ELIGIBLE\" ? \"ELIGIBLE !\" : \"NOT ELIGIBLE\" }}*\n\n*Ringkasan Singkat:*\n{{ $node[\"Set\"].json[\"Reason\"] }}\n\n*Kekuatan Utama Kandidat:*\n{{ $node[\"Set\"].json[\"Strengths\"] }}\n\n*Area yang Perlu Diperhatikan:*\n{{ $node[\"Set\"].json[\"Weaknesses\"] }}\n\n*Rekomendasi Wawancara:* *{{ $node[\"Set\"].json[\"Interview Recommendation\"] || \"Belum ada rekomendasi.\" }}*\n\nSemoga informasi ini membantu! ",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        720,
+        -20
+      ],
+      "id": "e3e9c15f-4626-4ab4-84f0-8943d01df2e1",
+      "name": "Telegram",
+      "webhookId": "1de00ee1-ea57-4486-8313-d43f06f0cb34",
+      "credentials": {
+        "telegramApi": {
+          "id": "VTUoRo0fxxOBtpWm",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1k7WhZBJ2MKEYKYC5qXnjZXX-DRVJaK5juqXa5JRdVaA",
+          "mode": "list",
+          "cachedResultName": "CV Resume Gemini AI",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k7WhZBJ2MKEYKYC5qXnjZXX-DRVJaK5juqXa5JRdVaA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1k7WhZBJ2MKEYKYC5qXnjZXX-DRVJaK5juqXa5JRdVaA/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $node[\"Set\"].json[\"Timestamp\"] }}",
+            "Candidate Name": "={{ $node[\"Set\"].json[\"Candidate Name\"] }}",
+            "Candidate Email": "={{ $node[\"Set\"].json[\"Candidate Email\"] }}",
+            "Is Qualified": "={{ $node[\"Set\"].json[\"Is Qualified\"] }}",
+            "Reason": "={{ $node[\"Set\"].json[\"Reason\"] }}",
+            "Strengths": "={{ $node[\"Set\"].json[\"Strengths\"] }}",
+            "Weaknesses": "={{ $node[\"Set\"].json[\"Weaknesses\"] }}",
+            "Interview Recommendation": "={{ $node[\"Set\"].json[\"Interview Recommendation\"] }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Timestamp",
+              "displayName": "Timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Candidate Name",
+              "displayName": "Candidate Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Candidate Email",
+              "displayName": "Candidate Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Is Qualified",
+              "displayName": "Is Qualified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reason",
+              "displayName": "Reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Strengths",
+              "displayName": "Strengths",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Weaknesses",
+              "displayName": "Weaknesses",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Interview Recommendation",
+              "displayName": "Interview Recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        940,
+        -20
+      ],
+      "id": "bfbd96f0-026a-4704-9983-96838bad8550",
+      "name": "Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "FPn03vwonES7Ors4",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ed8d88e7-94fa-47ba-ab4b-9265609daa63",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7902142168aa0c0a5d668696dab698d4a82165c3716e716fc78256c844586edd"
+  },
+  "id": "4SAa62ojIzs2cbmr",
+  "tags": []
+}
